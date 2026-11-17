@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사다리 타기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#3b2f4a;
+    --soft:#8a7d99;
+    --pink:#ff6b8b;
+    --yellow:#ffb627;
+    --mint:#3ddbb0;
+    --sky:#4dabf7;
+    --purple:#a78bfa;
+    --gap:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    min-height:100vh;
+    font-family:'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    color:var(--ink);
+    background:linear-gradient(135deg,#fff3c4 0%,#ffd9e8 45%,#d4f1ff 100%);
+    background-size:220% 220%;
+    animation:bgShift 16s ease-in-out infinite;
+    overflow-x:hidden;
+  }
+  @keyframes bgShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+  /* 떠다니는 배경 도형 */
+  .blob{position:fixed;border-radius:50%;filter:blur(2px);opacity:.55;z-index:0;pointer-events:none;animation:float 12s ease-in-out infinite}
+  .blob.b1{width:180px;height:180px;background:#ffc6d5;top:6%;left:-50px}
+  .blob.b2{width:120px;height:120px;background:#bff0e0;top:58%;left:4%;animation-delay:-3s;animation-duration:14s}
+  .blob.b3{width:220px;height:220px;background:#cde9ff;top:12%;right:-70px;animation-delay:-6s;animation-duration:15s}
+  .blob.b4{width:90px;height:90px;background:#ffe39a;bottom:8%;right:10%;animation-delay:-2s}
+  .blob.b5{width:60px;height:60px;background:#e2d5ff;top:40%;right:22%;animation-delay:-8s;animation-duration:10s}
+  @keyframes float{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(24px,-30px) scale(1.06)}
+    66%{transform:translate(-18px,20px) scale(.95)}
+  }
+
+  .app{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:32px 16px 56px}
+
+  /* 헤더 */
+  header{text-align:center;margin-bottom:22px}
+  h1{margin:0;font-size:clamp(40px,8vw,64px);font-weight:400;letter-spacing:2px;line-height:1.1}
+  h1 span{
+    display:inline-block;opacity:0;
+    animation:drop .7s cubic-bezier(.34,1.56,.64,1) forwards, wave 3.2s ease-in-out infinite;
+    text-shadow:0 4px 0 rgba(255,255,255,.9),0 8px 18px rgba(255,107,139,.25);
+  }
+  h1 span:nth-child(1){color:var(--pink);animation-delay:.05s,1.2s}
+  h1 span:nth-child(2){color:var(--yellow);animation-delay:.15s,1.4s}
+  h1 span:nth-child(3){color:var(--sky);animation-delay:.25s,1.6s}
+  h1 span:nth-child(4){width:.35em}
+  h1 span:nth-child(5){color:var(--mint);animation-delay:.35s,1.8s}
+  h1 span:nth-child(6){color:var(--purple);animation-delay:.45s,2s}
+  @keyframes drop{
+    0%{opacity:0;transform:translateY(-50px) rotate(-12deg)}
+    60%{opacity:1;transform:translateY(6px) rotate(4deg)}
+    100%{opacity:1;transform:none}
+  }
+  @keyframes wave{0%,100%{translate:0 0}50%{translate:0 -6px}}
+  .subtitle{margin:10px 0 0;color:var(--soft);font-size:18px;opacity:0;animation:fadeUp .7s .6s ease forwards}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  /* 카드 */
+  .card{
+    background:rgba(255,255,255,.82);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:2px solid rgba(255,255,255,.9);
+    border-radius:28px;
+    box-shadow:0 18px 40px rgba(122,84,160,.14),0 2px 0 rgba(255,255,255,.8) inset;
+    padding:22px;
+    opacity:0;
+    animation:rise .7s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:none}}
+
+  /* 상단 컨트롤 */
+  .controls{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .counter{display:flex;align-items:center;gap:12px;font-size:20px}
+  .counter .label{color:var(--soft)}
+  .count-box{display:flex;align-items:center;gap:6px;background:#fff6f9;border-radius:999px;padding:5px;box-shadow:0 0 0 2px #ffe0ea inset}
+  .round-btn{
+    width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;
+    font-family:inherit;font-size:24px;line-height:1;color:#fff;
+    background:linear-gradient(145deg,#ff8aa5,#ff5c80);
+    box-shadow:0 4px 0 #e04869;
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .18s,opacity .2s;
+  }
+  .round-btn:hover:not(:disabled){transform:translateY(-2px) scale(1.08)}
+  .round-btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 #e04869}
+  .round-btn:disabled{opacity:.35;cursor:not-allowed}
+  .count-num{min-width:64px;text-align:center;font-size:26px;color:var(--pink)}
+  .count-num.bump{animation:bump .4s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.45) rotate(-6deg)}100%{transform:scale(1)}}
+  .hint{color:var(--soft);font-size:15px}
+
+  /* 보드 */
+  .board-scroll{overflow-x:auto;overflow-y:visible;padding:6px 4px 10px;margin:0 -4px}
+  .board{min-width:calc(var(--n,5) * 74px)}
+  .row{display:grid;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:var(--gap)}
+  .slot{
+    position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .slot.enter{opacity:0;animation:popIn .55s cubic-bezier(.34,1.56,.64,1) forwards}
+  @keyframes popIn{
+    0%{opacity:0;transform:scale(.4) translateY(12px)}
+    70%{opacity:1;transform:scale(1.07)}
+    100%{opacity:1;transform:none}
+  }
+  .badge{
+    width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+    color:#fff;font-size:15px;background:var(--c);
+    box-shadow:0 3px 0 rgba(0,0,0,.12);
+    transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .slot input{
+    width:100%;min-width:0;text-align:center;
+    font-family:inherit;font-size:16px;color:var(--ink);
+    padding:10px 6px;border-radius:14px;
+    border:2px solid #efe6f5;background:#fff;
+    outline:none;
+    transition:border-color .25s,box-shadow .25s,transform .25s cubic-bezier(.34,1.56,.64,1),background .3s;
+  }
+  .slot input::placeholder{color:#c4b8cf}
+  .slot input:focus{border-color:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 22%,transparent);transform:translateY(-2px)}
+  .slot input:disabled{opacity:1;color:var(--ink);background:#fbf8fd}
+  .name-row .slot.active .badge{transform:scale(1.3);animation:pulse .8s ease-in-out infinite}
+  .name-row .slot.active input{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,#fff)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 55%,transparent)}50%{box-shadow:0 0 0 9px transparent}}
+
+  .prize-row .slot input{border-style:dashed}
+  .prize-row .slot.hit input{
+    border-style:solid;border-color:var(--c);
+    background:color-mix(in srgb,var(--c) 16%,#fff);
+    animation:tada .7s ease;
+  }
+  @keyframes tada{
+    0%{transform:scale(1)}
+    15%,35%{transform:scale(.92) rotate(-4deg)}
+    50%,80%{transform:scale(1.12) rotate(4deg)}
+    65%{transform:scale(1.12) rotate(-4deg)}
+    100%{transform:scale(1)}
+  }
+  .who{
+    font-size:13px;color:#fff;background:var(--c);
+    padding:3px 10px;border-radius:999px;max-width:100%;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+
+  /* 사다리 영역 */
+  .ladder-wrap{position:relative;height:360px;margin:10px 0;border-radius:20px;overflow:hidden}
+  .ladder-wrap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;transition:opacity .25s ease}
+  .ladder-wrap svg.fade{opacity:0}
+  .leg{stroke:#e4d6ee;stroke-width:6;stroke-linecap:round}
+  .rung{
+    stroke:#d9c6e8;stroke-width:6;stroke-linecap:round;
+    transform-box:fill-box;transform-origin:center;
+    transform:scaleX(0);
+    transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .rung.show{transform:scaleX(1)}
+  .rung.instant{transition:none}
+  .trail{fill:none;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;transition:opacity .25s,stroke-width .25s}
+  .dot{stroke:#fff;stroke-width:3;filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}
+  #paths.focus .trail{opacity:.12}
+  #paths.focus .dot{opacity:.2}
+  #paths.focus .trail.on{opacity:1;stroke-width:9}
+  #paths.focus .dot.on{opacity:1}
+
+  /* 가림막 */
+  .curtain{
+    position:absolute;inset:0;z-index:2;border-radius:20px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    background:repeating-linear-gradient(45deg,#ffd166 0 24px,#ffc045 24px 48px);
+    background-size:68px 68px;
+    animation:stripes 2.4s linear infinite;
+    clip-path:inset(0 0 0 0 round 20px);
+    transition:clip-path .8s cubic-bezier(.77,0,.18,1);
+    box-shadow:0 0 0 3px rgba(255,255,255,.7) inset;
+  }
+  .curtain.open{clip-path:inset(0 0 100% 0 round 20px);pointer-events:none}
+  @keyframes stripes{to{background-position:68px 0}}
+  .curtain .q{
+    font-size:72px;color:#fff;line-height:1;
+    text-shadow:0 5px 0 #f29e1c,0 10px 20px rgba(200,120,0,.3);
+    animation:bounceQ 1.4s cubic-bezier(.34,1.56,.64,1) infinite;
+  }
+  @keyframes bounceQ{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-16px) rotate(6deg)}}
+  .curtain .msg{
+    background:#fff;color:var(--ink);font-size:20px;padding:10px 22px;border-radius:999px;
+    box-shadow:0 6px 0 rgba(242,158,28,.45);
+  }
+  .curtain .sub{color:#7a5200;font-size:15px;background:rgba(255,255,255,.55);padding:4px 14px;border-radius:999px}
+  .curtain .mini{position:absolute;color:rgba(255,255,255,.75);font-size:30px;animation:twinkle 3s ease-in-out infinite}
+  .curtain .mini:nth-of-type(1){top:14%;left:10%}
+  .curtain .mini:nth-of-type(2){top:22%;right:12%;animation-delay:-1s;font-size:38px}
+  .curtain .mini:nth-of-type(3){bottom:16%;left:18%;animation-delay:-2s;font-size:24px}
+  .curtain .mini:nth-of-type(4){bottom:12%;right:20%;animation-delay:-1.5s}
+  @keyframes twinkle{0%,100%{opacity:.3;transform:scale(.8) rotate(0)}50%{opacity:1;transform:scale(1.15) rotate(15deg)}}
+
+  /* 시작 버튼 */
+  .actions{display:flex;justify-content:center;margin-top:20px}
+  .start-btn{
+    position:relative;overflow:hidden;
+    font-family:inherit;font-size:24px;color:#fff;letter-spacing:1px;
+    padding:16px 52px;border:none;border-radius:999px;cursor:pointer;
+    background:linear-gradient(135deg,#ff6b8b,#ff9a5c 55%,#ffc145);
+    background-size:200% 200%;
+    box-shadow:0 7px 0 #e0496b,0 16px 30px rgba(255,107,139,.35);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s,filter .3s;
+    animation:btnGlow 4s ease-in-out infinite;
+  }
+  .start-btn.reset{background:linear-gradient(135deg,#4dabf7,#3ddbb0);box-shadow:0 7px 0 #2f8fd6,0 16px 30px rgba(77,171,247,.35)}
+  @keyframes btnGlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+  .start-btn::after{
+    content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);
+    transform:skewX(-20deg);animation:shine 3s ease-in-out infinite;
+  }
+  @keyframes shine{0%,60%{left:-60%}100%{left:130%}}
+  .start-btn:hover:not(:disabled){transform:translateY(-3px) scale(1.04)}
+  .start-btn:active:not(:disabled){transform:translateY(5px);box-shadow:0 2px 0 #e0496b}
+  .start-btn.reset:active:not(:disabled){box-shadow:0 2px 0 #2f8fd6}
+  .start-btn:disabled{cursor:wait;filter:saturate(.6) brightness(1.05)}
+  .start-btn:disabled::after{animation-duration:1s}
+  .start-btn .txt{display:inline-block;animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
+
+  /* 결과 */
+  .results{margin-top:24px;display:none}
+  .results.show{display:block}
+  .results h2{margin:0 0 6px;text-align:center;font-weight:400;font-size:30px;color:var(--pink)}
+  .results .desc{text-align:center;color:var(--soft);margin:0 0 18px;font-size:15px}
+  .result-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .r-item{
+    display:flex;align-items:center;gap:10px;
+    background:#fff;border-radius:18px;padding:12px 14px;
+    border:2px solid color-mix(in srgb,var(--c) 30%,#fff);
+    box-shadow:0 5px 0 color-mix(in srgb,var(--c) 28%,#fff);
+    cursor:default;
+    transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;
+  }
+  .r-item.anim{opacity:0;animation:popIn .55s cubic-bezier(.34,1.56,.64,1) forwards}
+  .r-item:hover{transform:translateY(-4px) rotate(-1deg);box-shadow:0 9px 0 color-mix(in srgb,var(--c) 35%,#fff)}
+  .r-item .dotc{width:14px;height:14px;border-radius:50%;background:var(--c);flex:none}
+  .r-item .nm{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:2.5em}
+  .r-item .arrow{color:var(--soft);flex:none}
+  .r-item .pz{
+    margin-left:auto;font-size:17px;color:#fff;background:var(--c);flex:0 1 auto;min-width:0;
+    padding:5px 12px;border-radius:12px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  footer{text-align:center;color:var(--soft);font-size:14px;margin-top:26px;opacity:0;animation:fadeUp .8s 1s forwards}
+
+  /* 꽃가루 */
+  .confetti{
+    position:fixed;top:-24px;z-index:50;pointer-events:none;border-radius:3px;
+    animation:fall var(--d) cubic-bezier(.25,.6,.45,1) forwards;
+  }
+  @keyframes fall{
+    0%{transform:translate(0,0) rotate(0);opacity:1}
+    85%{opacity:1}
+    100%{transform:translate(var(--x),110vh) rotate(var(--r));opacity:0}
+  }
+
+  @media (max-width:600px){
+    .card{padding:16px;border-radius:22px}
+    .ladder-wrap{height:320px}
+    .slot input{font-size:14px;padding:9px 4px}
+    .start-btn{font-size:21px;padding:14px 40px}
+    .controls{justify-content:center}
+    .hint{text-align:center;width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms!important;animation-iteration-count:1!important}
+  }
+</style>
+</head>
+<body>
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div><div class="blob b5"></div>
+
+  <div class="app">
+    <header>
+      <h1 aria-label="사다리 타기"><span>사</span><span>다</span><span>리</span><span> </span><span>타</span><span>기</span></h1>
+      <p class="subtitle">누가 누가 당첨될까? 두근두근 운명의 사다리!</p>
+    </header>
+
+    <main class="card" style="animation-delay:.3s">
+      <div class="controls">
+        <div class="counter">
+          <span class="label">참가 인원</span>
+          <div class="count-box">
+            <button class="round-btn" id="minus" aria-label="인원 줄이기">−</button>
+            <div class="count-num" id="count">5명</div>
+            <button class="round-btn" id="plus" aria-label="인원 늘리기">+</button>
+          </div>
+        </div>
+        <div class="hint">✏️ 이름과 당첨 내역을 자유롭게 바꿔보세요 (2~10명)</div>
+      </div>
+
+      <div class="board-scroll">
+        <div class="board" id="board">
+          <div class="row name-row" id="names"></div>
+          <div class="ladder-wrap" id="wrap">
+            <svg id="ladder" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="curtain" id="curtain">
+              <span class="mini">✦</span><span class="mini">★</span><span class="mini">✦</span><span class="mini">★</span>
+              <div class="q">?</div>
+              <div class="msg">사다리는 아직 비밀! 🤫</div>
+              <div class="sub">시작 버튼을 누르면 공개돼요</div>
+            </div>
+          </div>
+          <div class="row prize-row" id="prizes"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="start-btn" id="start"><span class="txt">시작하기 ▶</span></button>
+      </div>
+
+      <section class="results" id="results">
+        <h2>🎉 결과 발표!</h2>
+        <p class="desc">카드에 마우스를 올리면 그 사람의 사다리 길이 강조돼요</p>
+        <div class="result-list" id="resultList"></div>
+      </section>
+    </main>
+
+    <footer>즐거운 사다리 타기 되세요! 🍀</footer>
+  </div>
+
+<script>
+(() => {
+  const COLORS = ['#ff6b8b','#4dabf7','#ffb627','#2ec99e','#a78bfa','#ff8a3d','#22b8d6','#e86bd0','#7cc63c','#ff5c5c'];
+  const MIN = 2, MAX = 10, LEVELS = 12, GAP = 10, PAD = 18;
+
+  const state = {
+    n: 5,
+    names: ['민준','서연','도윤','하은','지호'],
+    prizes: ['꽝','커피 쏘기 ☕','꽝','치킨 당첨 🍗','간식 당번'],
+    rungs: [],
+    revealed: false,
+    running: false,
+    results: null
+  };
+
+  const $ = id => document.getElementById(id);
+  const board = $('board'), namesRow = $('names'), prizesRow = $('prizes');
+  const wrap = $('wrap'), svg = $('ladder'), curtain = $('curtain');
+  const startBtn = $('start'), countEl = $('count'), minusBtn = $('minus'), plusBtn = $('plus');
+  const resultsEl = $('results'), resultList = $('resultList');
+  let pathsG = null;
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const color = i => COLORS[i % COLORS.length];
+  const nameOf = i => (state.names[i] || '').trim() || `참가자 ${i + 1}`;
+  const prizeOf = i => (state.prizes[i] || '').trim() || `결과 ${i + 1}`;
+  const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  /* ---------- 입력칸 ---------- */
+  function renderInputs(prevN) {
+    board.style.setProperty('--n', state.n);
+    namesRow.innerHTML = '';
+    prizesRow.innerHTML = '';
+    for (let i = 0; i < state.n; i++) {
+      const isNew = i >= prevN;
+      const delay = isNew ? (i - prevN) * 60 : 0;
+
+      const ns = document.createElement('div');
+      ns.className = 'slot' + (isNew ? ' enter' : '');
+      ns.style.setProperty('--c', color(i));
+      ns.style.animationDelay = delay + 'ms';
+      ns.innerHTML = `<span class="badge">${i + 1}</span><input maxlength="8" aria-label="${i + 1}번 이름" placeholder="참가자 ${i + 1}">`;
+      const ni = ns.querySelector('input');
+      ni.value = state.names[i] || '';
+      ni.addEventListener('input', () => { state.names[i] = ni.value; if (state.revealed) refreshNames(); });
+      namesRow.appendChild(ns);
+
+      const ps = document.createElement('div');
+      ps.className = 'slot' + (isNew ? ' enter' : '');
+      ps.style.setProperty('--c', '#c9b6dc');
+      ps.style.animationDelay = (delay + 120) + 'ms';
+      ps.innerHTML = `<input maxlength="10" aria-label="${i + 1}번 당첨 내역" placeholder="결과 ${i + 1}">`;
+      const pi = ps.querySelector('input');
+      pi.value = state.prizes[i] || '';
+      pi.addEventListener('input', () => { state.prizes[i] = pi.value; if (state.revealed) refreshNames(); });
+      prizesRow.appendChild(ps);
+    }
+    updateCounter();
+  }
+
+  function updateCounter(bump) {
+    countEl.textContent = state.n + '명';
+    if (bump) { countEl.classList.remove('bump'); void countEl.offsetWidth; countEl.classList.add('bump'); }
+    minusBtn.disabled = state.running || state.n <= MIN;
+    plusBtn.disabled = state.running || state.n >= MAX;
+  }
+
+  function setLocked(locked) {
+    document.querySelectorAll('.slot input').forEach(el => el.disabled = locked);
+    updateCounter();
+  }
+
+  /* ---------- 사다리 생성 ---------- */
+  function genLadder() {
+    const g = state.n - 1;
+    const r = Array.from({ length: LEVELS }, () => Array(g).fill(false));
+    for (let l = 0; l < LEVELS; l++)
+      for (let j = 0; j < g; j++)
+        if (!(j > 0 && r[l][j - 1]) && Math.random() < 0.42) r[l][j] = true;
+    // 모든 칸 사이에 가로줄이 최소 1개 이상 있도록
+    for (let j = 0; j < g; j++) {
+      if (r.some(row => row[j])) continue;
+      const cands = [...Array(LEVELS).keys()].filter(l => !r[l][j - 1] && !r[l][j + 1]);
+      const l = cands.length ? cands[Math.floor(Math.random() * cands.length)] : Math.floor(Math.random() * LEVELS);
+      if (!cands.length) { if (j > 0) r[l][j - 1] = false; if (j + 1 < g) r[l][j + 1] = false; }
+      r[l][j] = true;
+    }
+    state.rungs = r;
+  }
+
+  function geom() {
+    const W = wrap.clientWidth, H = wrap.clientHeight, n = state.n;
+    const cw = (W - GAP * (n - 1)) / n;
+    return {
+      W, H,
+      x: i => i * (cw + GAP) + cw / 2,
+      y: l => PAD + (l + 0.5) * (H - PAD * 2) / LEVELS
+    };
+  }
+
+  function drawLadder(showRungs) {
+    const { W, H, x, y } = geom();
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    let s = '';
+    for (let i = 0; i < state.n; i++)
+      s += `<line class="leg" x1="${x(i)}" y1="4" x2="${x(i)}" y2="${H - 4}"/>`;
+    state.rungs.forEach((row, l) => row.forEach((on, j) => {
+      if (on) s += `<line class="rung${showRungs ? ' show instant' : ''}" x1="${x(j)}" y1="${y(l)}" x2="${x(j + 1)}" y2="${y(l)}"/>`;
+    }));
+    s += '<g id="paths"></g>';
+    svg.innerHTML = s;
+    pathsG = svg.querySelector('#paths');
+  }
+
+  function trace(start) {
+    const { H, x, y } = geom();
+    let c = start;
+    const pts = [[x(c), 4]];
+    for (let l = 0; l < LEVELS; l++) {
+      if (c < state.n - 1 && state.rungs[l][c]) {
+        pts.push([x(c), y(l)]); c++; pts.push([x(c), y(l)]);
+      } else if (c > 0 && state.rungs[l][c - 1]) {
+        pts.push([x(c), y(l)]); c--; pts.push([x(c), y(l)]);
+      }
+    }
+    pts.push([x(c), H - 4]);
+    const d = pts.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    return { d, end: c, last: pts[pts.length - 1] };
+  }
+
+  function makePath(i, d) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('class', 'trail');
+    p.setAttribute('stroke', color(i));
+    p.dataset.i = i;
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('r', 9);
+    dot.setAttribute('class', 'dot');
+    dot.setAttribute('fill', color(i));
+    dot.dataset.i = i;
+    pathsG.appendChild(p);
+    pathsG.appendChild(dot);
+    return { p, dot };
+  }
+
+  function animatePath(i) {
+    return new Promise(resolve => {
+      const t = trace(i);
+      const { p, dot } = makePath(i, t.d);
+      const len = p.getTotalLength();
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+      const dur = Math.min(2600, 1100 + len * 1.1);
+      const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      const nameSlot = namesRow.children[i];
+      nameSlot.classList.add('active');
+      let t0 = null;
+      const step = ts => {
+        if (t0 === null) t0 = ts;
+        const k = Math.min(1, (ts - t0) / dur), e = ease(k);
+        p.style.strokeDashoffset = len * (1 - e);
+        const pt = p.getPointAtLength(len * e);
+        dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y);
+        if (k < 1) requestAnimationFrame(step);
+        else {
+          p.style.strokeDasharray = 'none';
+          nameSlot.classList.remove('active');
+          markHit(i, t.end);
+          resolve(t.end);
+        }
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  function drawFinishedPaths() {
+    state.results.forEach((end, i) => {
+      const t = trace(i);
+      const { dot } = makePath(i, t.d);
+      dot.setAttribute('cx', t.last[0]); dot.setAttribute('cy', t.last[1]);
+    });
+  }
+
+  function markHit(player, end) {
+    const slot = prizesRow.children[end];
+    if (!slot) return;
+    slot.style.setProperty('--c', color(player));
+    slot.classList.add('hit');
+    slot.querySelector('.who')?.remove();
+    const chip = document.createElement('span');
+    chip.className = 'who';
+    chip.textContent = nameOf(player);
+    slot.appendChild(chip);
+  }
+
+  function clearHits() {
+    [...prizesRow.children].forEach(s => {
+      s.classList.remove('hit');
+      s.style.setProperty('--c', '#c9b6dc');
+      s.querySelector('.who')?.remove();
+    });
+  }
+
+  /* ---------- 결과 ---------- */
+  function renderResults(animate) {
+    resultList.innerHTML = '';
+    state.results.forEach((end, i) => {
+      const el = document.createElement('div');
+      el.className = 'r-item' + (animate ? ' anim' : '');
+      el.style.setProperty('--c', color(i));
+      el.style.animationDelay = (i * 90) + 'ms';
+      el.innerHTML = `<span class="dotc"></span><span class="nm"></span><span class="arrow">→</span><span class="pz"></span>`;
+      el.querySelector('.nm').textContent = nameOf(i);
+      el.querySelector('.pz').textContent = prizeOf(end);
+      el.addEventListener('mouseenter', () => focusPath(i));
+      el.addEventListener('mouseleave', () => focusPath(null));
+      resultList.appendChild(el);
+    });
+    resultsEl.classList.add('show');
+  }
+
+  function refreshNames() {
+    state.results.forEach((end, i) => {
+      const item = resultList.children[i];
+      if (item) {
+        item.querySelector('.nm').textContent = nameOf(i);
+        item.querySelector('.pz').textContent = prizeOf(end);
+      }
+      const chip = prizesRow.children[end]?.querySelector('.who');
+      if (chip) chip.textContent = nameOf(i);
+    });
+  }
+
+  function focusPath(i) {
+    if (!pathsG) return;
+    pathsG.classList.toggle('focus', i !== null);
+    pathsG.querySelectorAll('.trail, .dot').forEach(el => el.classList.toggle('on', i !== null && +el.dataset.i === i));
+    if (i !== null) {
+      const ps = pathsG.querySelector(`.trail[data-i="${i}"]`);
+      const ds = pathsG.querySelector(`.dot[data-i="${i}"]`);
+      if (ps) pathsG.appendChild(ps);
+      if (ds) pathsG.appendChild(ds);
+    }
+  }
+
+  /* ---------- 꽃가루 ---------- */
+  function confetti() {
+    const shapes = ['3px', '50%', '0'];
+    for (let k = 0; k < 90; k++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      const size = 7 + Math.random() * 8;
+      c.style.width = size + 'px';
+      c.style.height = size * (0.6 + Math.random() * 0.9) + 'px';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = COLORS[k % COLORS.length];
+      c.style.borderRadius = shapes[k % 3];
+      c.style.setProperty('--x', (Math.random() * 240 - 120) + 'px');
+      c.style.setProperty('--r', (Math.random() * 900 - 450) + 'deg');
+      c.style.setProperty('--d', (2.2 + Math.random() * 1.8) + 's');
+      c.style.animationDelay = Math.random() * 0.5 + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }
+  }
+
+  /* ---------- 버튼 ---------- */
+  function setButton(text, mode, disabled) {
+    startBtn.disabled = !!disabled;
+    startBtn.classList.toggle('reset', mode === 'reset');
+    startBtn.innerHTML = `<span class="txt">${text}</span>`;
+  }
+
+  async function start() {
+    if (state.running) return;
+    if (state.revealed) { await hideAndRegen(); return; }
+
+    state.running = true;
+    setLocked(true);
+    setButton('두근두근... 🎲', 'start', true);
+
+    curtain.classList.add('open');
+    await sleep(650);
+
+    const rungs = [...svg.querySelectorAll('.rung')];
+    const stagger = Math.min(35, 900 / Math.max(1, rungs.length));
+    rungs.forEach((r, k) => { r.style.transitionDelay = (k * stagger) + 'ms'; r.classList.add('show'); });
+    await sleep(rungs.length * stagger + 450);
+    rungs.forEach(r => r.style.transitionDelay = '0ms');
+
+    const jobs = [];
+    for (let i = 0; i < state.n; i++) jobs.push(sleep(i * 320).then(() => animatePath(i)));
+    state.results = await Promise.all(jobs);
+
+    state.revealed = true;
+    state.running = false;
+    setLocked(false);
+    setButton('다시 하기 🔄', 'reset', false);
+    renderResults(true);
+    confetti();
+    setTimeout(() => resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300);
+  }
+
+  async function hideAndRegen() {
+    state.running = true;
+    setLocked(true);
+    setButton('사다리 섞는 중... 🔀', 'start', true);
+    resultsEl.classList.remove('show');
+    clearHits();
+    curtain.classList.remove('open');
+    svg.classList.add('fade');
+    await sleep(300);
+    state.revealed = false;
+    state.results = null;
+    genLadder();
+    drawLadder(false);
+    svg.classList.remove('fade');
+    await sleep(450);
+    state.running = false;
+    setLocked(false);
+    setButton('시작하기 ▶', 'start', false);
+  }
+
+  function changeCount(delta) {
+    if (state.running) return;
+    const next = Math.max(MIN, Math.min(MAX, state.n + delta));
+    if (next === state.n) return;
+    const prev = state.n;
+    state.n = next;
+    while (state.names.length < next) state.names.push('');
+    while (state.prizes.length < next) state.prizes.push('');
+    state.revealed = false;
+    state.results = null;
+    resultsEl.classList.remove('show');
+    curtain.classList.remove('open');
+    renderInputs(prev);
+    updateCounter(true);
+    genLadder();
+    drawLadder(false);
+    setButton('시작하기 ▶', 'start', false);
+  }
+
+  minusBtn.addEventListener('click', () => changeCount(-1));
+  plusBtn.addEventListener('click', () => changeCount(1));
+  startBtn.addEventListener('click', start);
+
+  /* 화면 크기가 바뀌면 사다리 다시 그리기 */
+  let rt;
+  new ResizeObserver(() => {
+    clearTimeout(rt);
+    rt = setTimeout(() => {
+      if (state.running) return;
+      drawLadder(state.revealed);
+      if (state.revealed && state.results) drawFinishedPaths();
+    }, 80);
+  }).observe(wrap);
+
+  /* 초기화 */
+  renderInputs(0);
+  genLadder();
+  drawLadder(false);
+})();
+</script>
+</body>
+</html>

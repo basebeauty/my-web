@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>룰렛 추첨기 · 발표자 뽑기 & 조 편성</title>
+<style>
+  /* ===== 기본 색상 및 공통 스타일 ===== */
+  :root {
+    --bg: #fff8ec;
+    --panel: #ffffff;
+    --ink: #2b2340;
+    --muted: #7a7190;
+    --primary: #ff5c8a;
+    --primary-dark: #e23f70;
+    --accent: #3cc6c0;
+    --yellow: #ffd23f;
+    --border: #f1e3cf;
+    --shadow: 0 8px 24px rgba(80, 50, 20, .10);
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background:
+      radial-gradient(circle at 10% 10%, #ffe3ef 0, transparent 35%),
+      radial-gradient(circle at 90% 20%, #d9f7f5 0, transparent 35%),
+      radial-gradient(circle at 50% 100%, #fff1c2 0, transparent 40%),
+      var(--bg);
+    color: var(--ink);
+    font-size: 20px;
+    overflow-x: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: .5; }
+
+  /* ===== 상단 헤더 ===== */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 34px; letter-spacing: -1px; }
+  header h1 span { color: var(--primary); }
+  .header-right { display: flex; gap: 12px; align-items: center; }
+
+  /* ===== 탭 버튼 ===== */
+  .tabs { display: flex; gap: 8px; background: #fff; padding: 6px; border-radius: 999px; box-shadow: var(--shadow); }
+  .tab {
+    border: none; background: transparent; padding: 12px 26px; border-radius: 999px;
+    font-size: 22px; font-weight: 700; color: var(--muted);
+  }
+  .tab.active { background: var(--primary); color: #fff; }
+
+  .btn {
+    border: none; border-radius: 14px; padding: 14px 22px; font-size: 20px; font-weight: 700;
+    background: #fff; color: var(--ink); box-shadow: var(--shadow); transition: transform .1s;
+  }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--primary-dark); }
+  .btn.teal { background: var(--accent); color: #fff; }
+  .btn.big { font-size: 30px; padding: 20px 44px; border-radius: 20px; }
+  .btn.small { font-size: 16px; padding: 8px 14px; border-radius: 10px; box-shadow: none; background: #f5eee3; }
+
+  /* ===== 전체 레이아웃 ===== */
+  main {
+    display: grid; grid-template-columns: 340px 1fr; gap: 24px;
+    padding: 0 32px 32px; min-height: calc(100vh - 100px);
+  }
+  .panel { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
+
+  /* ===== 왼쪽: 이름 입력 ===== */
+  .names-panel { display: flex; flex-direction: column; gap: 12px; }
+  .names-panel h2 { margin: 0; font-size: 24px; display: flex; justify-content: space-between; align-items: center; }
+  .count-badge { background: var(--yellow); border-radius: 999px; padding: 4px 14px; font-size: 18px; }
+  .hint { color: var(--muted); font-size: 15px; margin: 0; line-height: 1.5; }
+  textarea {
+    flex: 1; min-height: 300px; width: 100%; resize: vertical;
+    border: 2px solid var(--border); border-radius: 14px; padding: 14px;
+    font-family: inherit; font-size: 20px; line-height: 1.6; color: var(--ink); outline: none;
+  }
+  textarea:focus { border-color: var(--primary); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ===== 오른쪽: 각 탭 화면 ===== */
+  .view { display: none; }
+  .view.active { display: flex; }
+
+  /* 발표자 뽑기 화면 */
+  #view-pick { gap: 24px; }
+  .wheel-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; min-width: 0; }
+  .wheel-wrap { position: relative; width: min(100%, 72vh); aspect-ratio: 1; }
+  #wheel { width: 100%; height: 100%; display: block; }
+  /* 룰렛 위쪽 화살표 */
+  .pointer {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; z-index: 2;
+    border-left: 26px solid transparent; border-right: 26px solid transparent;
+    border-top: 50px solid var(--ink);
+    filter: drop-shadow(0 3px 3px rgba(0,0,0,.25));
+  }
+  .controls { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .check { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; cursor: pointer; user-select: none; }
+  .check input { width: 26px; height: 26px; accent-color: var(--primary); }
+
+  .side { width: 280px; display: flex; flex-direction: column; gap: 16px; }
+  .side h3 { margin: 0 0 8px; font-size: 22px; display: flex; justify-content: space-between; align-items: center; }
+  .last-winner { font-size: 40px; font-weight: 800; color: var(--primary); text-align: center; min-height: 56px; word-break: keep-all; }
+  .picked-list { list-style: none; padding: 0; margin: 0; max-height: 40vh; overflow: auto; }
+  .picked-list li { padding: 8px 12px; border-radius: 10px; font-size: 20px; }
+  .picked-list li:nth-child(odd) { background: #fff6e6; }
+  .picked-list li b { color: var(--muted); margin-right: 8px; font-size: 16px; }
+  .empty { color: var(--muted); font-size: 17px; }
+
+  /* 조 편성 화면 */
+  #view-group { flex-direction: column; gap: 20px; }
+  .group-controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .seg { display: flex; background: #f5eee3; border-radius: 14px; padding: 5px; }
+  .seg label { padding: 10px 18px; border-radius: 10px; font-size: 20px; font-weight: 700; cursor: pointer; color: var(--muted); }
+  .seg input { display: none; }
+  .seg input:checked + span { color: #fff; }
+  .seg label:has(input:checked) { background: var(--accent); color: #fff; }
+  .num-input { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; }
+  .num-input input {
+    width: 90px; font-size: 26px; font-weight: 800; text-align: center; padding: 8px;
+    border: 2px solid var(--border); border-radius: 12px; font-family: inherit; color: var(--ink);
+  }
+  .stepper { width: 44px; height: 44px; border-radius: 12px; border: none; background: #f5eee3; font-size: 26px; font-weight: 800; color: var(--ink); }
+  .group-info { color: var(--muted); font-size: 18px; }
+
+  .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; }
+  .group-card {
+    background: #fff; border-radius: 18px; box-shadow: var(--shadow); overflow: hidden;
+    animation: pop .4s ease both;
+  }
+  .group-card .head { padding: 12px 18px; color: #fff; font-size: 26px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+  .group-card .head small { font-size: 16px; opacity: .9; font-weight: 600; }
+  .group-card ul { list-style: none; margin: 0; padding: 12px 18px 16px; }
+  .group-card li { font-size: 24px; font-weight: 600; padding: 6px 0; border-bottom: 1px dashed #eee; }
+  .group-card li:last-child { border-bottom: none; }
+  @keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+  .placeholder { text-align: center; color: var(--muted); padding: 60px 0; font-size: 22px; }
+
+  /* ===== 당첨자 팝업 ===== */
+  .modal {
+    position: fixed; inset: 0; background: rgba(43, 35, 64, .55);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal.show { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 32px; padding: 50px 80px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3); animation: zoom .5s cubic-bezier(.2, 1.6, .4, 1) both;
+    max-width: 90vw;
+  }
+  .modal-box .label { font-size: 32px; font-weight: 700; color: var(--muted); }
+  .modal-box .winner-name {
+    font-size: clamp(64px, 12vw, 160px); font-weight: 900; color: var(--primary);
+    margin: 10px 0 24px; letter-spacing: -2px; word-break: keep-all; line-height: 1.15;
+  }
+  @keyframes zoom { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* 꽃가루 캔버스 (화면 전체 위에 덮음) */
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+
+  /* 알림 메시지 */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(120px);
+    background: var(--ink); color: #fff; padding: 16px 28px; border-radius: 14px; font-size: 20px;
+    transition: transform .3s; z-index: 70;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* 좁은 화면 대응 */
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; }
+    #view-pick { flex-direction: column; }
+    .side { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎡 <span>룰렛</span> 추첨기</h1>
+  <div class="tabs">
+    <button class="tab active" data-view="pick">🎯 발표자 뽑기</button>
+    <button class="tab" data-view="group">👥 조 편성</button>
+  </div>
+  <div class="header-right">
+    <button class="btn" id="soundBtn" title="효과음 켜기/끄기">🔊 소리 켬</button>
+    <button class="btn" id="fullscreenBtn">⛶ 전체 화면</button>
+  </div>
+</header>
+
+<main>
+  <!-- 왼쪽: 이름 목록 입력 -->
+  <section class="panel names-panel">
+    <h2>참가자 명단 <span class="count-badge" id="countBadge">0명</span></h2>
+    <p class="hint">한 줄에 한 명씩 입력하거나<br>엑셀에서 복사해 그대로 붙여넣으세요.</p>
+    <textarea id="namesInput" spellcheck="false" placeholder="이름을 한 줄에 하나씩 입력"></textarea>
+    <div class="row">
+      <button class="btn small" id="dedupeBtn">중복 이름 정리</button>
+      <button class="btn small" id="sampleBtn">예시 이름</button>
+      <button class="btn small" id="clearBtn">모두 지우기</button>
+    </div>
+  </section>
+
+  <!-- 오른쪽: 기능 화면 -->
+  <section class="panel">
+    <!-- 발표자 뽑기 -->
+    <div class="view active" id="view-pick">
+      <div class="wheel-area">
+        <div class="wheel-wrap">
+          <div class="pointer"></div>
+          <canvas id="wheel"></canvas>
+        </div>
+        <div class="controls">
+          <button class="btn primary big" id="spinBtn">🎯 발표자 뽑기</button>
+          <label class="check"><input type="checkbox" id="excludePicked" checked> 이미 뽑힌 사람 제외</label>
+        </div>
+      </div>
+      <aside class="side">
+        <div class="panel" style="box-shadow:none;background:#fff6e6;">
+          <h3>최근 당첨자</h3>
+          <div class="last-winner" id="lastWinner">-</div>
+        </div>
+        <div>
+          <h3>뽑힌 사람 <button class="btn small" id="resetPicked">초기화</button></h3>
+          <ul class="picked-list" id="pickedList"></ul>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 조 편성 -->
+    <div class="view" id="view-group">
+      <div class="group-controls">
+        <div class="seg">
+          <label><input type="radio" name="groupMode" value="count" checked><span>N개 조로 나누기</span></label>
+          <label><input type="radio" name="groupMode" value="size"><span>N명씩 나누기</span></label>
+        </div>
+        <div class="num-input">
+          <button class="stepper" id="minusBtn">−</button>
+          <input type="number" id="groupNum" value="3" min="1">
+          <button class="stepper" id="plusBtn">+</button>
+          <span id="numUnit">개 조</span>
+        </div>
+        <button class="btn teal" id="makeGroupsBtn">👥 조 편성하기</button>
+        <button class="btn" id="reshuffleBtn" disabled>🔀 다시 섞기</button>
+        <button class="btn" id="copyBtn" disabled>📋 복사</button>
+      </div>
+      <div class="group-info" id="groupInfo"></div>
+      <div class="groups" id="groups">
+        <div class="placeholder">방식과 숫자를 고른 뒤 [조 편성하기]를 눌러주세요.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 당첨자 팝업 -->
+<div class="modal" id="winnerModal">
+  <div class="modal-box">
+    <div class="label">🎉 오늘의 발표자 🎉</div>
+    <div class="winner-name" id="winnerName"></div>
+    <button class="btn primary big" id="closeModal">확인</button>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   1. 기본 데이터와 공통 함수
+   ========================================================= */
+
+// 처음 열었을 때 들어 있는 예시 이름 12명
+const SAMPLE_NAMES = ['김민준', '이서연', '박지호', '최수아', '정도윤', '강하은',
+                      '조예준', '윤지우', '장시우', '임서윤', '한주원', '오하린'];
+
+// 룰렛 칸 / 조 카드에 쓰는 밝은 색상 팔레트
+const COLORS = ['#ff5c8a', '#ffa53f', '#ffd23f', '#7bd389', '#3cc6c0', '#4ea8ff',
+                '#8f7bff', '#ff7bd5', '#ff8a5c', '#a5d84a', '#2ec4e6', '#c48bff'];
+
+const $ = (sel) => document.querySelector(sel);
+const namesInput = $('#namesInput');
+
+let pickedNames = [];   // 이미 뽑힌 사람 목록 (순서대로)
+let soundOn = true;     // 효과음 사용 여부
+
+// 입력창의 내용을 이름 배열로 변환
+// - 줄바꿈(\n, \r\n)과 엑셀의 탭(\t) 모두 구분자로 인식
+// - 앞뒤 공백 제거, 빈 칸 제거
+function getNames() {
+  return namesInput.value
+    .split(/[\r\n\t]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+// 피셔-예이츠 방식으로 배열을 무작위로 섞기 (원본은 그대로 둠)
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// 화면 아래에 잠깐 나타나는 알림
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* =========================================================
+   2. 효과음 (Web Audio API로 간단히 생성, 파일 불필요)
+   ========================================================= */
+let audioCtx = null;
+function beep(freq, duration, type = 'square', volume = 0.06) {
+  if (!soundOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (e) { /* 소리를 낼 수 없는 환경이면 무시 */ }
+}
+// 당첨 팡파르 (도-미-솔-도)
+function fanfare() {
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.35, 'triangle', 0.12), i * 120));
+}
+
+/* =========================================================
+   3. 룰렛 그리기 (canvas)
+   ========================================================= */
+const wheel = $('#wheel');
+const ctx = wheel.getContext('2d');
+let rotation = 0;        // 현재 룰렛 회전 각도(라디안)
+let spinning = false;    // 회전 중 여부
+let wheelSize = 600;     // 캔버스 CSS 크기(px)
+
+// 룰렛에 올라갈 후보 목록 (제외 옵션 반영)
+function getCandidates() {
+  const names = getNames();
+  if (!$('#excludePicked').checked) return names;
+  const pickedSet = new Set(pickedNames);
+  return names.filter(n => !pickedSet.has(n));
+}
+
+// 칸 색상 선택: 마지막 칸과 첫 칸이 같은 색으로 붙지 않게 조정
+function sliceColor(i, total) {
+  let idx = i % COLORS.length;
+  if (i === total - 1 && total > 1 && idx === 0) idx = 1 + (i % (COLORS.length - 1));
+  return COLORS[idx];
+}
+
+// 화면 크기에 맞춰 캔버스 해상도 맞추기 (고해상도 화면에서도 선명하게)
+function resizeWheel() {
+  const rect = wheel.getBoundingClientRect();
+  wheelSize = rect.width || 600;
+  const dpr = window.devicePixelRatio || 1;
+  wheel.width = wheelSize * dpr;
+  wheel.height = wheelSize * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawWheel();
+}
+
+function drawWheel() {
+  const items = getCandidates();
+  const size = wheelSize;
+  const cx = size / 2, cy = size / 2;
+  const r = size / 2 - 12;
+  ctx.clearRect(0, 0, size, size);
+
+  // 바깥 테두리
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#2b2340';
+  ctx.fill();
+
+  if (items.length === 0) {
+    // 후보가 없을 때 안내 문구
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#f5eee3';
+    ctx.fill();
+    ctx.fillStyle = '#7a7190';
+    ctx.font = `700 ${size / 18}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const msg = getNames().length === 0 ? '이름을 입력해주세요' : '모두 뽑혔어요!';
+    ctx.fillText(msg, cx, cy);
+    return;
+  }
+
+  const seg = (Math.PI * 2) / items.length;
+
+  // 글자 크기: 칸 수가 많을수록 작게
+  const fontSize = Math.max(12, Math.min(size / 14, (size / items.length) * 1.1, 46));
+
+  items.forEach((name, i) => {
+    const start = rotation + i * seg;
+    // 칸 채우기
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, start + seg);
+    ctx.closePath();
+    ctx.fillStyle = sliceColor(i, items.length);
+    ctx.fill();
+    // 칸 경계선
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = items.length > 40 ? 1 : 3;
+    ctx.stroke();
+
+    // 이름 글자 (칸 중앙 방향으로 회전)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + seg / 2);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${fontSize}px "Pretendard","Malgun Gothic",sans-serif`;
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowBlur = 4;
+    // 너무 긴 이름은 잘라서 표시
+    let label = name;
+    const maxW = r * 0.62;
+    while (ctx.measureText(label).width > maxW && label.length > 1) label = label.slice(0, -1);
+    if (label !== name) label = label.slice(0, -1) + '…';
+    ctx.fillText(label, r - 22, 0);
+    ctx.restore();
+  });
+
+  // 가운데 원
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.13, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,.25)';
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#ff5c8a';
+  ctx.font = `${r * 0.12}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('★', cx, cy + 1);
+}
+
+/* =========================================================
+   4. 룰렛 돌리기 (자연스러운 감속 애니메이션)
+   ========================================================= */
+const POINTER_ANGLE = -Math.PI / 2;   // 화살표 위치: 12시 방향
+const TWO_PI = Math.PI * 2;
+const mod = (a, n) => ((a % n) + n) % n;
+
+// 감속 곡선: 처음엔 빠르고 끝으로 갈수록 천천히 (easeOutQuart)
+const easeOut = (t) => 1 - Math.pow(1 - t, 4);
+
+// 현재 화살표가 가리키는 칸 번호
+function indexAtPointer(count) {
+  const seg = TWO_PI / count;
+  return Math.floor(mod(POINTER_ANGLE - rotation, TWO_PI) / seg);
+}
+
+function spin() {
+  if (spinning) return;
+  const items = getCandidates();
+  if (items.length === 0) {
+    toast(getNames().length === 0 ? '먼저 이름을 입력해주세요.' : '모두 뽑혔어요. [초기화]를 눌러주세요.');
+    return;
+  }
+
+  spinning = true;
+  setControlsDisabled(true);
+
+  const count = items.length;
+  const seg = TWO_PI / count;
+
+  // 당첨자를 미리 무작위로 정하고, 그 칸의 중앙 근처에서 멈추도록 목표 각도 계산
+  const winnerIdx = Math.floor(Math.random() * count);
+  const offset = 0.2 + Math.random() * 0.6;              // 칸 경계에 딱 걸리지 않게
+  const targetMod = mod(POINTER_ANGLE - (winnerIdx + offset) * seg, TWO_PI);
+  const delta = mod(targetMod - rotation, TWO_PI);
+  const extraTurns = 6 + Math.floor(Math.random() * 3);  // 6~8바퀴 추가 회전
+  const startRot = rotation;
+  const totalRot = delta + extraTurns * TWO_PI;
+  const duration = 5500 + Math.random() * 1500;          // 5.5~7초
+
+  const startTime = performance.now();
+  let lastIdx = indexAtPointer(count);
+
+  function frame(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    rotation = startRot + totalRot * easeOut(t);
+    drawWheel();
+
+    // 칸을 지날 때마다 '틱' 소리
+    const idx = indexAtPointer(count);
+    if (idx !== lastIdx) { beep(900, 0.03); lastIdx = idx; }
+
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      rotation = mod(rotation, TWO_PI);
+      spinning = false;
+      setControlsDisabled(false);
+      announceWinner(items[winnerIdx]);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// 회전 중에는 버튼과 입력창을 잠금
+function setControlsDisabled(dis) {
+  $('#spinBtn').disabled = dis;
+  $('#excludePicked').disabled = dis;
+  $('#resetPicked').disabled = dis;
+  namesInput.readOnly = dis;
+}
+
+// 당첨자 발표: 크게 보여주기 + 꽃가루
+function announceWinner(name) {
+  pickedNames.push(name);
+  renderPicked();
+  $('#lastWinner').textContent = name;
+  $('#winnerName').textContent = name;
+  $('#winnerModal').classList.add('show');
+  fanfare();
+  launchConfetti();
+}
+
+function closeWinner() {
+  $('#winnerModal').classList.remove('show');
+  drawWheel();   // 제외 옵션이 켜져 있으면 당첨자가 빠진 룰렛으로 다시 그림
+}
+
+// 뽑힌 사람 목록 표시
+function renderPicked() {
+  const ul = $('#pickedList');
+  if (pickedNames.length === 0) {
+    ul.innerHTML = '<li class="empty">아직 없어요</li>';
+    return;
+  }
+  ul.innerHTML = '';
+  pickedNames.forEach((n, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<b>${i + 1}</b>`;
+    li.appendChild(document.createTextNode(n));
+    ul.appendChild(li);
+  });
+  ul.scrollTop = ul.scrollHeight;
+}
+
+/* =========================================================
+   5. 꽃가루 효과
+   ========================================================= */
+const confettiCanvas = $('#confetti');
+const cctx = confettiCanvas.getContext('2d');
+let particles = [];
+let confettiRunning = false;
+
+function resizeConfetti() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+}
+
+function launchConfetti() {
+  const w = confettiCanvas.width, h = confettiCanvas.height;
+  // 양쪽 아래에서 위로 터지는 꽃가루 + 위에서 떨어지는 꽃가루
+  for (let i = 0; i < 160; i++) {
+    const fromLeft = i % 2 === 0;
+    particles.push(makeParticle(
+      fromLeft ? 0 : w, h * 0.85,
+      (fromLeft ? 1 : -1) * (6 + Math.random() * 10),
+      -(14 + Math.random() * 12)
+    ));
+  }
+  for (let i = 0; i < 120; i++) {
+    particles.push(makeParticle(Math.random() * w, -20 - Math.random() * h * 0.5,
+      (Math.random() - 0.5) * 3, 2 + Math.random() * 3));
+  }
+  if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(updateConfetti); }
+}
+
+function makeParticle(x, y, vx, vy) {
+  return {
+    x, y, vx, vy,
+    size: 8 + Math.random() * 10,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    rot: Math.random() * TWO_PI,
+    vr: (Math.random() - 0.5) * 0.3,
+    shape: Math.random() < 0.5 ? 'rect' : 'circle',
+    wobble: Math.random() * TWO_PI,
+  };
+}
+
+function updateConfetti() {
+  const h = confettiCanvas.height;
+  cctx.clearRect(0, 0, confettiCanvas.width, h);
+  particles.forEach(p => {
+    p.vy += 0.25;              // 중력
+    p.vx *= 0.99;              // 공기 저항
+    p.vy = Math.min(p.vy, 6);  // 떨어지는 최대 속도
+    p.wobble += 0.1;
+    p.x += p.vx + Math.sin(p.wobble) * 0.8;
+    p.y += p.vy;
+    p.rot += p.vr;
+
+    cctx.save();
+    cctx.translate(p.x, p.y);
+    cctx.rotate(p.rot);
+    cctx.fillStyle = p.color;
+    if (p.shape === 'rect') {
+      // 팔랑거리는 느낌을 주기 위해 세로 길이를 변화
+      cctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2 * Math.abs(Math.cos(p.wobble)) + 1);
+    } else {
+      cctx.beginPath();
+      cctx.arc(0, 0, p.size / 3, 0, TWO_PI);
+      cctx.fill();
+    }
+    cctx.restore();
+  });
+  particles = particles.filter(p => p.y < h + 40);
+  if (particles.length > 0) requestAnimationFrame(updateConfetti);
+  else { confettiRunning = false; cctx.clearRect(0, 0, confettiCanvas.width, h); }
+}
+
+/* =========================================================
+   6. 조 편성
+   ========================================================= */
+let lastGroups = null;   // 마지막 편성 결과 (복사용)
+
+// 각 조의 인원 수 계산
+// - 남는 인원은 앞 조부터 한 명씩 더 배치
+function calcGroupSizes(total, mode, n) {
+  let groupCount;
+  if (mode === 'count') {
+    groupCount = Math.min(n, total);                 // 조 수가 인원보다 많을 수 없음
+  } else {
+    groupCount = Math.max(1, Math.floor(total / n)); // n명씩 묶을 수 있는 조 수
+  }
+  const base = Math.floor(total / groupCount);
+  const sizes = new Array(groupCount).fill(mode === 'size' ? Math.min(n, total) : base);
+  let left = total - sizes.reduce((a, b) => a + b, 0);
+  // 남은 인원을 1조부터 차례로 한 명씩 추가
+  for (let i = 0; left > 0; i = (i + 1) % groupCount, left--) sizes[i]++;
+  return sizes;
+}
+
+function makeGroups() {
+  const names = getNames();
+  const n = parseInt($('#groupNum').value, 10);
+  const mode = document.querySelector('input[name="groupMode"]:checked').value;
+
+  if (names.length === 0) { toast('먼저 이름을 입력해주세요.'); return; }
+  if (!n || n < 1) { toast('1 이상의 숫자를 입력해주세요.'); return; }
+
+  const shuffled = shuffle(names);
+  const sizes = calcGroupSizes(shuffled.length, mode, n);
+  const groups = [];
+  let pos = 0;
+  sizes.forEach(s => { groups.push(shuffled.slice(pos, pos + s)); pos += s; });
+  lastGroups = groups;
+
+  renderGroups(groups);
+  $('#reshuffleBtn').disabled = false;
+  $('#copyBtn').disabled = false;
+
+  // 안내 문구
+  let info = `총 ${names.length}명 → ${groups.length}개 조`;
+  if (mode === 'count' && n > names.length) info += ` (인원보다 조가 많아 ${groups.length}개 조로 조정)`;
+  const extra = sizes.filter(s => s > Math.min(...sizes)).length;
+  if (extra > 0 && Math.min(...sizes) !== Math.max(...sizes)) info += ` · 남은 인원은 앞 조부터 한 명씩 추가 배치`;
+  $('#groupInfo').textContent = info;
+  beep(660, 0.12, 'triangle', 0.1);
+}
+
+function renderGroups(groups) {
+  const box = $('#groups');
+  box.innerHTML = '';
+  groups.forEach((members, i) => {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    card.style.animationDelay = `${i * 0.06}s`;
+    const color = COLORS[i % COLORS.length];
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.style.background = color;
+    head.innerHTML = `<span>${i + 1}조</span><small>${members.length}명</small>`;
+    const ul = document.createElement('ul');
+    members.forEach(m => {
+      const li = document.createElement('li');
+      li.textContent = m;     // 이름은 텍스트로만 넣어 안전하게 표시
+      ul.appendChild(li);
+    });
+    card.append(head, ul);
+    box.appendChild(card);
+  });
+}
+
+// 메신저에 붙여넣기 좋은 텍스트로 변환
+function groupsToText(groups) {
+  const lines = ['📋 조 편성 결과'];
+  groups.forEach((m, i) => lines.push(`${i + 1}조 (${m.length}명): ${m.join(', ')}`));
+  return lines.join('\n');
+}
+
+async function copyGroups() {
+  if (!lastGroups) return;
+  const text = groupsToText(lastGroups);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('✅ 복사했어요! 메신저에 붙여넣으세요.');
+  } catch (e) {
+    // 파일로 열었을 때 등 클립보드 API가 막힌 경우를 위한 대체 방법
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    toast(ok ? '✅ 복사했어요! 메신저에 붙여넣으세요.' : '복사에 실패했어요. 다시 시도해주세요.');
+  }
+}
+
+// 방식에 따라 숫자 옆 단위 문구 변경
+function updateUnit() {
+  const mode = document.querySelector('input[name="groupMode"]:checked').value;
+  $('#numUnit').textContent = mode === 'count' ? '개 조' : '명씩';
+}
+
+/* =========================================================
+   7. 화면 이벤트 연결
+   ========================================================= */
+
+// 이름 목록이 바뀔 때: 인원 수 갱신 + 룰렛 다시 그리기
+function onNamesChange() {
+  $('#countBadge').textContent = `${getNames().length}명`;
+  if (!spinning) drawWheel();
+}
+namesInput.addEventListener('input', onNamesChange);
+
+// 탭 전환
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab.dataset.view));
+    if (tab.dataset.view === 'pick') requestAnimationFrame(resizeWheel);
+  });
+});
+
+$('#spinBtn').addEventListener('click', spin);
+$('#excludePicked').addEventListener('change', drawWheel);
+$('#resetPicked').addEventListener('click', () => {
+  pickedNames = [];
+  renderPicked();
+  $('#lastWinner').textContent = '-';
+  drawWheel();
+  toast('뽑힌 사람 목록을 초기화했어요.');
+});
+$('#closeModal').addEventListener('click', closeWinner);
+$('#winnerModal').addEventListener('click', (e) => { if (e.target.id === 'winnerModal') closeWinner(); });
+
+// 키보드: 스페이스/엔터로 뽑기, ESC로 팝업 닫기 (입력창에 쓰는 중에는 동작 안 함)
+document.addEventListener('keydown', (e) => {
+  const typing = ['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName);
+  if ($('#winnerModal').classList.contains('show')) {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeWinner(); }
+    return;
+  }
+  if (!typing && e.key === ' ' && $('#view-pick').classList.contains('active')) { e.preventDefault(); spin(); }
+});
+
+// 조 편성 관련 버튼
+$('#makeGroupsBtn').addEventListener('click', makeGroups);
+$('#reshuffleBtn').addEventListener('click', makeGroups);
+$('#copyBtn').addEventListener('click', copyGroups);
+document.querySelectorAll('input[name="groupMode"]').forEach(r => r.addEventListener('change', updateUnit));
+$('#minusBtn').addEventListener('click', () => { const i = $('#groupNum'); i.value = Math.max(1, (parseInt(i.value, 10) || 1) - 1); });
+$('#plusBtn').addEventListener('click', () => { const i = $('#groupNum'); i.value = (parseInt(i.value, 10) || 0) + 1; });
+
+// 이름 목록 도구
+$('#sampleBtn').addEventListener('click', () => { namesInput.value = SAMPLE_NAMES.join('\n'); onNamesChange(); });
+$('#clearBtn').addEventListener('click', () => { namesInput.value = ''; onNamesChange(); namesInput.focus(); });
+$('#dedupeBtn').addEventListener('click', () => {
+  const before = getNames();
+  const after = [...new Set(before)];
+  namesInput.value = after.join('\n');
+  onNamesChange();
+  toast(before.length === after.length ? '중복된 이름이 없어요.' : `중복 ${before.length - after.length}개를 정리했어요.`);
+});
+
+// 붙여넣기 후 탭·빈 줄을 정리해 한 줄에 한 명씩 보이게 함 (엑셀 복사 대응)
+namesInput.addEventListener('paste', () => {
+  setTimeout(() => { namesInput.value = getNames().join('\n'); onNamesChange(); }, 0);
+});
+
+// 효과음 켜기/끄기
+$('#soundBtn').addEventListener('click', () => {
+  soundOn = !soundOn;
+  $('#soundBtn').textContent = soundOn ? '🔊 소리 켬' : '🔇 소리 끔';
+});
+
+// 전체 화면 전환
+$('#fullscreenBtn').addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)
+      ?.call(document.documentElement);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  $('#fullscreenBtn').textContent = document.fullscreenElement ? '⛶ 전체 화면 끄기' : '⛶ 전체 화면';
+  setTimeout(resizeWheel, 100);
+});
+
+// 창 크기가 바뀌면 캔버스 크기 다시 맞춤
+window.addEventListener('resize', () => { resizeWheel(); resizeConfetti(); });
+if ('ResizeObserver' in window) new ResizeObserver(() => resizeWheel()).observe($('.wheel-wrap'));
+
+/* =========================================================
+   8. 시작: 예시 이름 12명 넣고 화면 그리기
+   ========================================================= */
+namesInput.value = SAMPLE_NAMES.join('\n');
+onNamesChange();
+renderPicked();
+resizeConfetti();
+resizeWheel();
+</script>
+</body>
+</html>
